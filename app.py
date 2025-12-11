@@ -118,11 +118,14 @@ def extract_results_from_pdf_text(pdf_text):
         # e.g., IT23556652 -> IT 23 5566 52
         formatted_it = f"IT {it_number[2:4]} {it_number[4:8]} {it_number[8:10]}"
         
-        # Pattern to match: IT XX XXXX XX followed by CA Marks and Grade
-        # Format: IT XX XXXX XX [number] [Grade] [Status]
-        pattern = rf"{re.escape(formatted_it)}\s+(\d+\.?\d*)\s+([A-F][+-]?)\s+(Pass|Fail)"
+        # Also try compact format (ITXXXXXXXX)
+        compact_it = it_number
         
-        matches = re.finditer(pattern, pdf_text, re.IGNORECASE | re.MULTILINE)
+        found = False
+        
+        # Pattern 1: With CA Marks - IT XX XXXX XX [marks] [Grade] [Status]
+        pattern_with_marks = rf"{re.escape(formatted_it)}\s+(\d+\.?\d*)\s+([A-F][+-]?)\s+(Pass|Fail)"
+        matches = re.finditer(pattern_with_marks, pdf_text, re.IGNORECASE | re.MULTILINE)
         for match in matches:
             ca_marks = float(match.group(1))
             grade = match.group(2).upper()
@@ -134,7 +137,60 @@ def extract_results_from_pdf_text(pdf_text):
                 'grade': grade,
                 'status': status
             })
+            found = True
             break  # Only take first match
+        
+        # Pattern 2: Without CA Marks - IT XX XXXX XX [Grade] [Status]
+        if not found:
+            pattern_without_marks = rf"{re.escape(formatted_it)}\s+([A-F][+-]?)\s+(Pass|Fail)"
+            matches = re.finditer(pattern_without_marks, pdf_text, re.IGNORECASE | re.MULTILINE)
+            for match in matches:
+                grade = match.group(1).upper()
+                status = match.group(2).capitalize()
+                
+                all_results.append({
+                    'it_number': it_number,
+                    'ca_marks': None,  # No CA marks available
+                    'grade': grade,
+                    'status': status
+                })
+                found = True
+                break  # Only take first match
+        
+        # Pattern 3: Compact format with CA Marks - ITXXXXXXXX [marks] [Grade] [Status]
+        if not found:
+            pattern_compact_with_marks = rf"{re.escape(compact_it)}\s+(\d+\.?\d*)\s+([A-F][+-]?)\s+(Pass|Fail)"
+            matches = re.finditer(pattern_compact_with_marks, pdf_text, re.IGNORECASE | re.MULTILINE)
+            for match in matches:
+                ca_marks = float(match.group(1))
+                grade = match.group(2).upper()
+                status = match.group(3).capitalize()
+                
+                all_results.append({
+                    'it_number': it_number,
+                    'ca_marks': ca_marks,
+                    'grade': grade,
+                    'status': status
+                })
+                found = True
+                break  # Only take first match
+        
+        # Pattern 4: Compact format without CA Marks - ITXXXXXXXX [Grade] [Status]
+        if not found:
+            pattern_compact_without_marks = rf"{re.escape(compact_it)}\s+([A-F][+-]?)\s+(Pass|Fail)"
+            matches = re.finditer(pattern_compact_without_marks, pdf_text, re.IGNORECASE | re.MULTILINE)
+            for match in matches:
+                grade = match.group(1).upper()
+                status = match.group(2).capitalize()
+                
+                all_results.append({
+                    'it_number': it_number,
+                    'ca_marks': None,  # No CA marks available
+                    'grade': grade,
+                    'status': status
+                })
+                found = True
+                break  # Only take first match
     
     return all_results
 

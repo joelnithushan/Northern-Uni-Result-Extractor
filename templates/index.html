@@ -660,7 +660,7 @@
             const rows = currentResults.map(r => [
                 r.it_number,
                 r.name || '',
-                r.ca_marks,
+                r.ca_marks !== null && r.ca_marks !== undefined ? r.ca_marks : 'N/A',
                 r.grade,
                 r.status
             ]);
