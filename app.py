@@ -106,6 +106,26 @@ def parse_result_line(line):
             'status': match.group(4).capitalize()
         }
 
+    # Pattern 3: IT XX XXXX XX [marks] only (number and marks)
+    match = re.match(r'IT\s*(\d{2})\s*(\d{4})\s*(\d{2})\s+(\d+\.?\d*)', line, re.IGNORECASE)
+    if match:
+        return {
+            'it_number': f"IT{match.group(1)}{match.group(2)}{match.group(3)}",
+            'ca_marks': float(match.group(4)),
+            'grade': None,
+            'status': None
+        }
+
+    # Pattern 4: ITXXXXXXXX [marks] only (number and marks)
+    match = re.match(r'IT(\d{8})\s+(\d+\.?\d*)', line, re.IGNORECASE)
+    if match:
+        return {
+            'it_number': f"IT{match.group(1)}",
+            'ca_marks': float(match.group(2)),
+            'grade': None,
+            'status': None
+        }
+
     return None
 
 def extract_results_from_pdf_text(pdf_text):
@@ -191,6 +211,38 @@ def extract_results_from_pdf_text(pdf_text):
                 })
                 found = True
                 break  # Only take first match
+        
+        # Pattern 5: Formatted IT number with marks only - IT XX XXXX XX [marks]
+        if not found:
+            pattern_marks_only = rf"{re.escape(formatted_it)}\s+(\d+\.?\d*)"
+            matches = re.finditer(pattern_marks_only, pdf_text, re.IGNORECASE | re.MULTILINE)
+            for match in matches:
+                ca_marks = float(match.group(1))
+                
+                all_results.append({
+                    'it_number': it_number,
+                    'ca_marks': ca_marks,
+                    'grade': None,  # No grade available
+                    'status': None  # No status available
+                })
+                found = True
+                break  # Only take first match
+        
+        # Pattern 6: Compact IT number with marks only - ITXXXXXXXX [marks]
+        if not found:
+            pattern_compact_marks_only = rf"{re.escape(compact_it)}\s+(\d+\.?\d*)"
+            matches = re.finditer(pattern_compact_marks_only, pdf_text, re.IGNORECASE | re.MULTILINE)
+            for match in matches:
+                ca_marks = float(match.group(1))
+                
+                all_results.append({
+                    'it_number': it_number,
+                    'ca_marks': ca_marks,
+                    'grade': None,  # No grade available
+                    'status': None  # No status available
+                })
+                found = True
+                break  # Only take first match
     
     return all_results
 
@@ -267,9 +319,14 @@ def upload_pdf():
             return jsonify({'error': 'No results found for your center students in this PDF.'}), 400
         
         # Calculate statistics
-        passed = sum(1 for r in center_results if r['status'] == 'Pass')
-        failed = len(center_results) - passed
-        pass_rate = f"{((passed / len(center_results)) * 100):.1f}%" if center_results else "0.0%"
+        passed = sum(1 for r in center_results if r.get('status') == 'Pass')
+        failed = sum(1 for r in center_results if r.get('status') == 'Fail')
+        # Only calculate pass rate if we have status information
+        total_with_status = passed + failed
+        if total_with_status > 0:
+            pass_rate = f"{((passed / total_with_status) * 100):.1f}%"
+        else:
+            pass_rate = "N/A"
         
         return jsonify({
             'success': True,
@@ -309,9 +366,14 @@ def process_results():
             return jsonify({'error': 'No results found for your center students.'}), 400
         
         # Calculate statistics
-        passed = sum(1 for r in center_results if r['status'] == 'Pass')
-        failed = len(center_results) - passed
-        pass_rate = f"{((passed / len(center_results)) * 100):.1f}%" if center_results else "0.0%"
+        passed = sum(1 for r in center_results if r.get('status') == 'Pass')
+        failed = sum(1 for r in center_results if r.get('status') == 'Fail')
+        # Only calculate pass rate if we have status information
+        total_with_status = passed + failed
+        if total_with_status > 0:
+            pass_rate = f"{((passed / total_with_status) * 100):.1f}%"
+        else:
+            pass_rate = "N/A"
         
         return jsonify({
             'success': True,
@@ -329,4 +391,5 @@ def process_results():
         return jsonify({'error': f'Error processing results: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)

@@ -491,6 +491,28 @@
                 };
             }
 
+            // Pattern 3: IT XX XXXX XX [marks] only (number and marks)
+            match = line.match(/IT\s*(\d{2})\s*(\d{4})\s*(\d{2})\s+(\d+\.?\d*)/i);
+            if (match) {
+                return {
+                    it_number: `IT${match[1]}${match[2]}${match[3]}`,
+                    ca_marks: parseFloat(match[4]),
+                    grade: null,
+                    status: null
+                };
+            }
+
+            // Pattern 4: ITXXXXXXXX [marks] only (number and marks)
+            match = line.match(/IT(\d{8})\s+(\d+\.?\d*)/i);
+            if (match) {
+                return {
+                    it_number: `IT${match[1]}`,
+                    ca_marks: parseFloat(match[2]),
+                    grade: null,
+                    status: null
+                };
+            }
+
             return null;
         }
 
